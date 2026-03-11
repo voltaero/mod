@@ -401,7 +401,7 @@ dependencies = [
 [[package]]
 name = "enginelib"
 version = "0.2.0"
-source = "git+https://github.com/voltaero/engine.git#45c19b8def9e84e4f88a6e6eb8ec1c9696344a61"
+source = "git+https://github.com/voltaero/engine.git#f9ddcc8e9eff65906f9000ec16638e933ebac20b"
 dependencies = [
  "chrono",
  "directories",
@@ -1557,7 +1557,7 @@ checksum = "5e5032e24019045c762d3c0f28f5b6b8bbf38563a65908389bf7978758920897"
 [[package]]
 name = "macros"
 version = "0.1.0"
-source = "git+https://github.com/voltaero/engine.git#45c19b8def9e84e4f88a6e6eb8ec1c9696344a61"
+source = "git+https://github.com/voltaero/engine.git#f9ddcc8e9eff65906f9000ec16638e933ebac20b"
 dependencies = [
  "proc-macro2",
  "quote",
