@@ -1,31 +1,20 @@
+use serde::{Deserialize, Serialize};
+
 use enginelib::Identifier;
-use enginelib::RegisterCgrpcEventHandler;
-use enginelib::RegisterEventHandler;
 use enginelib::Registry;
 use enginelib::api::EngineAPI;
-use enginelib::event::Event;
-use enginelib::event::EventCTX;
-use enginelib::event::EventHandler;
 use enginelib::event::info;
-use enginelib::events;
-use enginelib::events::ID;
-use enginelib::events::cgrpc_event::CgrpcEvent;
+use enginelib::events::{ID, cgrpc_event::CgrpcEvent, start_event::StartEvent};
 use enginelib::plugin::LibraryMetadata;
-use enginelib::prelude::macros::Verifiable;
-use enginelib::prelude::macros::metadata;
-use enginelib::prelude::macros::module;
-use enginelib::register_event;
+use enginelib::prelude::macros::{Event, Verifiable, event_handler, metadata, module};
 use enginelib::task::Task;
 use enginelib::task::Verifiable;
-use serde::Deserialize;
-use serde::Serialize;
-use std::any::Any;
-use std::fmt::Debug;
 #[derive(Debug, Clone, Default, Serialize, Deserialize, Verifiable)]
 pub struct FibTask {
     pub iter: u64,
     pub result: u64,
 }
+
 impl Task for FibTask {
     fn to_toml(&self) -> String {
         toml::to_string(&self.clone()).unwrap()
@@ -35,7 +24,7 @@ impl Task for FibTask {
         Box::new(r)
     }
     fn get_id(&self) -> Identifier {
-        ("engine_core".to_string(), "fib".to_string())
+        ID("engine_mod", "fib")
     }
     fn clone_box(&self) -> Box<dyn Task> {
         Box::new(self.clone())
@@ -61,105 +50,64 @@ impl Task for FibTask {
 
 #[metadata]
 pub fn metadata() -> LibraryMetadata {
-    let meta: LibraryMetadata = LibraryMetadata {
+    LibraryMetadata {
         mod_id: "engine_mod".to_owned(),
         mod_author: "@ign-styly".to_string(),
         mod_name: "Engine mod Demo".to_string(),
         mod_version: "0.0.1".to_string(),
         ..Default::default()
-    };
-    meta
+    }
 }
-#[derive(Clone, Debug)]
-struct CustomEvent {
-    pub id: Identifier,
+
+#[derive(Clone, Debug, Event)]
+#[event(namespace = "engine_mod", name = "custom_event", cancellable)]
+pub struct CustomEvent {
     pub cancelled: bool,
+    pub message: String,
 }
-impl Event for CustomEvent {
-    fn clone_box(&self) -> Box<dyn Event> {
-        Box::new(self.clone())
-    }
 
-    fn cancel(&mut self) {
-        self.cancelled = true;
-    }
-    fn is_cancelled(&self) -> bool {
-        self.cancelled
-    }
-    fn get_id(&self) -> Identifier {
-        self.id.clone()
-    }
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
+#[event_handler(namespace = "engine_mod", name = "custom_event")]
+fn on_custom(event: &mut CustomEvent) {
+    info!("custom_event: {}", event.message);
+}
 
-    fn as_any_mut(&mut self) -> &mut dyn Any {
-        self
+#[event_handler(namespace = "core", name = "cgrpc_event")]
+fn on_cgrpc(event: &mut CgrpcEvent) {
+    if event.handler_id == ID("engine_mod", "grpc") {
+        event
+            .output
+            .write()
+            .unwrap()
+            .extend_from_slice(event.payload.as_slice());
+        info!("handled cgrpc_event for engine_mod.grpc");
     }
+}
+
+#[event_handler(
+    namespace = "core",
+    name = "start_event",
+    ctx = std::sync::Arc::new(metadata())
+)]
+fn on_start(event: &mut StartEvent, meta: &std::sync::Arc<LibraryMetadata>) {
+    for module in event.modules.iter() {
+        info!("Module loaded: {} ({})", module.mod_id, module.mod_name);
+    }
+    info!(
+        "StartEvent handled by {} by {}",
+        meta.mod_name, meta.mod_author
+    );
 }
 
 #[module]
 pub fn run(api: &mut EngineAPI) {
-    EngineAPI::setup_logger();
-    let mod_id = "engine_core".to_string();
-    let task_id = "fib".to_string();
-    let meta: LibraryMetadata = metadata();
-    let mod_ctx = Arc::new(meta.clone());
-    register_event!(
-        api,
-        engine_core,
-        custom_event,
-        CustomEvent {
-            cancelled: false,
-            id: ID("engine_core", "custom_event")
-        }
+    api.task_registry.register(
+        std::sync::Arc::new(FibTask::default()),
+        ID("engine_mod", "fib"),
     );
-    RegisterCgrpcEventHandler!(cgrpcHandler, engine_core, grpc, |event: &mut CgrpcEvent| {
-        event.output.write().unwrap().append(event.payload.as_mut());
-        println!("grpc event!");
-    });
-    RegisterEventHandler!(
-        CustomEventHandler,
-        CustomEvent,
-        |event: &mut CustomEvent| {
-            info!("Custom Event",);
-        }
-    );
-
-    RegisterEventHandler!(
-        StartEventHandler,
-        events::start_event::StartEvent,
-        LibraryMetadata,
-        |event: &mut events::start_event::StartEvent, mod_ctx: &Arc<LibraryMetadata>| {
-            for n in event.modules.clone() {
-                info!("Module: {:?}", n);
-            }
-            info!(
-                "Event {:?} Handled by: {:?}, made by {}",
-                event.id, &mod_ctx.mod_name, &mod_ctx.mod_author,
-            );
-        }
-    );
-    let tsk_ref = Arc::new(FibTask::default());
-    api.task_registry
-        .register(tsk_ref, (mod_id.clone(), task_id.clone()));
-    api.event_bus.event_handler_registry.register_handler(
-        StartEventHandler { mod_ctx },
-        ("core".to_string(), "start_event".to_string()),
-    );
-    api.event_bus.event_handler_registry.register_handler(
-        cgrpcHandler {},
-        ("core".to_string(), "cgrpc_event".to_string()),
-    );
-    api.event_bus.event_handler_registry.register_handler(
-        CustomEventHandler {},
-        ("engine_core".to_string(), "custom_event".to_string()),
-    );
-    api.event_bus.handle(
-        ("engine_core".into(), "custom_event".into()),
-        &mut CustomEvent {
-            cancelled: false,
-            id: ID("engine_core", "custom_event"),
-        },
-    );
+    info!("Hello world from mod!");
+    let mut ev = CustomEvent {
+        cancelled: false,
+        message: "hello from engine_mod".to_string(),
+    };
+    api.event_bus.fire(&mut ev);
 }
