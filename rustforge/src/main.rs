@@ -66,8 +66,6 @@ struct DevArgs {
     #[arg(long)]
     release_mod: bool,
     #[arg(long)]
-    target: Option<String>,
-    #[arg(long)]
     hot: bool,
 }
 
@@ -313,7 +311,7 @@ fn dev(app: &App, args: &DevArgs) -> Result<()> {
         .clone()
         .unwrap_or_else(|| "server".to_owned());
     build_engine(app, args.release_engine, &engine_bin)?;
-    let artifact = package_mod(app, args.release_mod, args.target.as_deref())?;
+    let artifact = package_mod(app, args.release_mod, None)?;
     install_test_artifact(app, &artifact)?;
     if args.hot {
         watch_and_restart(app, args, &engine_bin)
@@ -551,7 +549,7 @@ fn watch_and_restart(app: &App, args: &DevArgs, engine_bin: &str) -> Result<()> 
                 build_engine(&reloaded_app, args.release_engine, &reloaded_engine_bin)?;
             }
 
-            let artifact = package_mod(&reloaded_app, args.release_mod, args.target.as_deref())?;
+            let artifact = package_mod(&reloaded_app, args.release_mod, None)?;
             install_test_artifact(&reloaded_app, &artifact)?;
             restart_engine_child(
                 &mut child,
