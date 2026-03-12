@@ -794,6 +794,11 @@ fn ensure_worktree(app: &App, mirror_dir: &Path) -> Result<()> {
 }
 
 fn remove_worktree(mirror_dir: &Path, worktree_dir: &Path) -> Result<()> {
+    let command = format!(
+        "git -C {} worktree remove --force {}",
+        mirror_dir.display(),
+        worktree_dir.display()
+    );
     let remove_result = Command::new("git")
         .current_dir(mirror_dir)
         .args(["worktree", "remove", "--force"])
@@ -802,12 +807,30 @@ fn remove_worktree(mirror_dir: &Path, worktree_dir: &Path) -> Result<()> {
 
     match remove_result {
         Ok(status) if status.success() => Ok(()),
-        _ => {
+        Ok(status) => {
             if worktree_dir.exists() {
                 fs::remove_dir_all(worktree_dir)
                     .with_context(|| format!("failed to remove {}", worktree_dir.display()))?;
             }
-            Ok(())
+            bail!(
+                "`{}` failed for worktree {} with status {}",
+                command,
+                worktree_dir.display(),
+                status
+            )
+        }
+        Err(error) => {
+            if worktree_dir.exists() {
+                fs::remove_dir_all(worktree_dir)
+                    .with_context(|| format!("failed to remove {}", worktree_dir.display()))?;
+            }
+            Err(error).with_context(|| {
+                format!(
+                    "failed to run `{}` for worktree {}",
+                    command,
+                    worktree_dir.display()
+                )
+            })
         }
     }
 }
