@@ -2,5 +2,12 @@
 name = "rustforge"
 version = "0.1.0"
 edition = "2024"
-#idk man
+
 [dependencies]
+anyhow = "1.0.102"
+cargo_metadata = "0.23.1"
+clap = { version = "4.5.53", features = ["derive"] }
+serde = { version = "1.0.228", features = ["derive"] }
+tar = "0.4.44"
+tempfile = "3.23.0"
+toml = "1.0.6+spec-1.1.0"
