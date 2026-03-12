@@ -160,6 +160,11 @@ impl App {
     fn load() -> Result<Self> {
         let project_root =
             env::current_dir().context("failed to determine current working directory")?;
+        Self::load_from(&project_root)
+    }
+
+    fn load_from(project_root: &Path) -> Result<Self> {
+        let project_root = project_root.to_path_buf();
         let manifest_path = project_root.join("Cargo.toml");
         ensure!(
             manifest_path.exists(),
@@ -510,7 +515,9 @@ fn spawn_engine_binary(app: &App, release: bool, bin: &str) -> Result<Child> {
 }
 
 fn watch_and_restart(app: &App, args: &DevArgs, engine_bin: &str) -> Result<()> {
-    let mut child = spawn_engine_binary(app, args.release_engine, engine_bin)?;
+    let mut current_app = app.clone();
+    let mut current_engine_bin = engine_bin.to_owned();
+    let mut child = spawn_engine_binary(&current_app, args.release_engine, &current_engine_bin)?;
     let mut state = scan_watch_state(&app.project_root)?;
     println!("Watching {} for changes", app.project_root.display());
 
@@ -527,11 +534,36 @@ fn watch_and_restart(app: &App, args: &DevArgs, engine_bin: &str) -> Result<()> 
         state = next_state;
 
         println!("Change detected, rebuilding mod");
-        match package_mod(app, args.release_mod, args.target.as_deref())
-            .and_then(|artifact| install_test_artifact(app, &artifact))
-        {
+        let reloaded_app = App::load_from(&app.project_root)
+            .context("failed to reload project state after change")?;
+        let reloaded_engine_bin = reloaded_app
+            .config
+            .engine
+            .bin
+            .clone()
+            .unwrap_or_else(|| "server".to_owned());
+        let engine_changed = reloaded_app.engine.commit != current_app.engine.commit;
+        let engine_bin_changed = reloaded_engine_bin != current_engine_bin;
+
+        match (|| -> Result<()> {
+            if engine_changed || engine_bin_changed {
+                sync_engine(&reloaded_app)?;
+                build_engine(&reloaded_app, args.release_engine, &reloaded_engine_bin)?;
+            }
+
+            let artifact = package_mod(&reloaded_app, args.release_mod, args.target.as_deref())?;
+            install_test_artifact(&reloaded_app, &artifact)?;
+            restart_engine_child(
+                &mut child,
+                &reloaded_app,
+                args.release_engine,
+                &reloaded_engine_bin,
+            )?;
+            Ok(())
+        })() {
             Ok(_) => {
-                restart_engine_child(&mut child, app, args.release_engine, engine_bin)?;
+                current_app = reloaded_app;
+                current_engine_bin = reloaded_engine_bin;
             }
             Err(error) => {
                 eprintln!("hot reload failed: {error:#}");
