@@ -973,7 +973,12 @@ fn parse_engine_source(source: &str) -> Result<(String, String)> {
         !repo_url.is_empty() && !commit.is_empty(),
         "Only git-pinned Engine/enginelib is supported; invalid source `{source}`"
     );
-    Ok((repo_url.to_owned(), commit.to_owned()))
+    let cleaned_repo_url = repo_url.split_once('?').map_or(repo_url, |(url, _)| url);
+    ensure!(
+        !cleaned_repo_url.is_empty(),
+        "Only git-pinned Engine/enginelib is supported; invalid source `{source}`"
+    );
+    Ok((cleaned_repo_url.to_owned(), commit.to_owned()))
 }
 
 fn mirror_has_commit(mirror_dir: &Path, commit: &str) -> Result<bool> {
@@ -1110,7 +1115,7 @@ mod tests {
             "git+https://github.com/voltaero/engine.git?branch=main#abcdef1234567890",
         )
         .expect("source should parse");
-        assert_eq!(repo, "https://github.com/voltaero/engine.git?branch=main");
+        assert_eq!(repo, "https://github.com/voltaero/engine.git");
         assert_eq!(commit, "abcdef1234567890");
     }
 
