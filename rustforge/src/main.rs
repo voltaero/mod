@@ -302,8 +302,6 @@ fn status(app: &App) -> Result<()> {
 }
 
 fn dev(app: &App, args: &DevArgs) -> Result<()> {
-    sync_engine(app)?;
-
     let engine_bin = app
         .config
         .engine
