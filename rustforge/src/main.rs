@@ -67,6 +67,10 @@ struct DevArgs {
     release_mod: bool,
     #[arg(long)]
     hot: bool,
+    #[arg(long)]
+    client: bool,
+    #[arg(long)]
+    packer: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -302,12 +306,25 @@ fn status(app: &App) -> Result<()> {
 }
 
 fn dev(app: &App, args: &DevArgs) -> Result<()> {
-    let engine_bin = app
-        .config
-        .engine
-        .bin
-        .clone()
-        .unwrap_or_else(|| "server".to_owned());
+    let engine_bin = if (args.client) {
+        app.config
+            .engine
+            .bin
+            .clone()
+            .unwrap_or_else(|| "client".to_owned())
+    } else if args.packer {
+        app.config
+            .engine
+            .bin
+            .clone()
+            .unwrap_or_else(|| "packer".to_owned())
+    } else {
+        app.config
+            .engine
+            .bin
+            .clone()
+            .unwrap_or_else(|| "server".to_owned())
+    };
     build_engine(app, args.release_engine, &engine_bin)?;
     let artifact = package_mod(app, args.release_mod, None)?;
     install_test_artifact(app, &artifact)?;
