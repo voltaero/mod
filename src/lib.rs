@@ -8,7 +8,7 @@ pub struct PowTask {
     pub zeros: u8,
     pub nonce: u64,
 }
-
+//lgtm
 impl PowTask {
     #[inline]
     fn has_leading_zero_nibbles(digest: &[u8; 32], zeros: u8) -> bool {
