@@ -10,6 +10,7 @@ pub struct FibTask {
 // Written by hand: `#[derive(Verifiable)]` at engine 6238297 emits
 // `verify(&self, Vec<u8>)`, which does not match the trait's `&[u8]`.
 impl Verifiable for FibTask {
+    /// Accepts bytes that decode to a Fibonacci task.
     fn verify(&self, b: &[u8]) -> bool {
         enginelib::api::from_bytes::<FibTask>(b).is_ok()
     }
@@ -48,6 +49,7 @@ impl Task for FibTask {
     }
 }
 
+/// Describes this mod to the engine loader.
 #[metadata]
 pub fn metadata() -> LibraryMetadata {
     LibraryMetadata {
@@ -66,11 +68,13 @@ pub struct CustomEvent {
     pub message: String,
 }
 
+/// Logs messages from the example custom event.
 #[event_handler(namespace = "engine_mod", name = "custom_event")]
 fn on_custom(event: &mut CustomEvent) {
     info!("custom_event: {}", event.message);
 }
 
+/// Logs loaded mods when a host fires the start event.
 #[event_handler(
     namespace = "core",
     name = "start_event",
@@ -88,6 +92,7 @@ fn on_start(event: &mut StartEvent, meta: &std::sync::Arc<LibraryMetadata>) {
 
 // Written by hand: `#[module]` at engine 6238297 calls the removed
 // `ServerAPI::setup_logger()`. This is what it expands to, using `init_tracing`.
+/// Registers the example task and event handlers with the engine.
 #[unsafe(export_name = "run")]
 pub fn run(api: &mut ServerAPI) {
     enginelib::api::init_tracing();

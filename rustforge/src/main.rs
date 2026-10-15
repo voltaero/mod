@@ -365,6 +365,7 @@ fn package_mod(app: &App, release: bool, target: Option<&str>) -> Result<PathBuf
     package_existing_build(app, release, target, false)
 }
 
+/// Packs a built library under the platform file name the engine expects.
 fn package_existing_build(
     app: &App,
     release: bool,
