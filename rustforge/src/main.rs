@@ -375,7 +375,8 @@ fn package_existing_build(
     let platform = infer_platform(target);
     let staged_name = match platform {
         PlatformKind::Windows => "mod.dll",
-        PlatformKind::MacOs | PlatformKind::Unix => "mod.so",
+        PlatformKind::MacOs => "mod.dylib",
+        PlatformKind::Unix => "mod.so",
     };
 
     let output_path = app.artifact_path_for(release, target, include_target_suffix);

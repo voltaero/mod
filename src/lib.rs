@@ -1,10 +1,18 @@
 use serde::{Deserialize, Serialize};
 
 use enginelib::{events::ID, prelude::*};
-#[derive(Debug, Clone, Default, Serialize, Deserialize, Verifiable)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct FibTask {
     pub iter: u64,
     pub result: u64,
+}
+
+// Written by hand: `#[derive(Verifiable)]` at engine 6238297 emits
+// `verify(&self, Vec<u8>)`, which does not match the trait's `&[u8]`.
+impl Verifiable for FibTask {
+    fn verify(&self, b: &[u8]) -> bool {
+        enginelib::api::from_bytes::<FibTask>(b).is_ok()
+    }
 }
 
 impl Task for FibTask {
@@ -63,18 +71,6 @@ fn on_custom(event: &mut CustomEvent) {
     info!("custom_event: {}", event.message);
 }
 
-#[event_handler(namespace = "core", name = "cgrpc_event")]
-fn on_cgrpc(event: &mut CgrpcEvent) {
-    if event.handler_id == ID("engine_mod", "grpc") {
-        event
-            .output
-            .write()
-            .unwrap()
-            .extend_from_slice(event.payload.as_slice());
-        info!("handled cgrpc_event for engine_mod.grpc");
-    }
-}
-
 #[event_handler(
     namespace = "core",
     name = "start_event",
@@ -90,8 +86,12 @@ fn on_start(event: &mut StartEvent, meta: &std::sync::Arc<LibraryMetadata>) {
     );
 }
 
-#[module]
-pub fn run(api: &mut EngineAPI) {
+// Written by hand: `#[module]` at engine 6238297 calls the removed
+// `ServerAPI::setup_logger()`. This is what it expands to, using `init_tracing`.
+#[unsafe(export_name = "run")]
+pub fn run(api: &mut ServerAPI) {
+    enginelib::api::init_tracing();
+    register_inventory_handlers_for_origin(api, env!("CARGO_PKG_NAME"));
     api.task_registry.register(
         std::sync::Arc::new(FibTask::default()),
         ID("engine_mod", "fib"),

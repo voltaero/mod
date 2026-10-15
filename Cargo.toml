@@ -8,6 +8,6 @@ crate-type = ["cdylib", "rlib"]
 [dependencies]
 enginelib = { git = "https://github.com/voltaero/engine.git" }
 serde = { version = "1.0.228", features = ["derive"] }
-toml = "1.0.6+spec-1.1.0"
+toml = "1.1.2"
 
-[metadata.rustforge]
+[package.metadata.rustforge]
