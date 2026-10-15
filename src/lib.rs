@@ -91,7 +91,7 @@ fn on_start(event: &mut StartEvent, meta: &std::sync::Arc<LibraryMetadata>) {
 }
 
 // Written by hand: `#[module]` at engine 6238297 calls the removed
-// `ServerAPI::setup_logger()`. This is what it expands to, using `init_tracing`.
+// `ServerAPI::setup_logger()`. This matches its behavior, using `init_tracing`.
 /// Registers the example task and event handlers with the engine.
 #[unsafe(export_name = "run")]
 pub fn run(api: &mut ServerAPI) {
